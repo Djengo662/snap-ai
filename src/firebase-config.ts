@@ -198,7 +198,7 @@ const xorEncrypt = (text: string, key: string) => {
   );
 };
 
-const xorDecrypt = (encoded: string, key): string => {
+const xorDecrypt = (encoded: string, key: string): string => {
   try {
     const text = atob(encoded);
     return text

@@ -21,7 +21,7 @@ import {
   faFire,
 } from "@fortawesome/free-solid-svg-icons";
 import { GradientButton, SocialButton } from "./snap-box";
-import { loadApyKey, saveMealEntry } from "../firebase-config";
+import { saveMealEntry } from "../firebase-config";
 import { Timestamp } from "firebase/firestore";
 
 interface ScanScreenProps {
@@ -39,7 +39,6 @@ type ScanState = "idle" | "analyzing" | "result" | "saving";
 export default function ScanScreen({ uid }: ScanScreenProps) {
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [imageBase64, setImageBase64] = useState<string>("");
-  const [imagePreview, setImagePreview] = useState<string>("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [toast, setToast] = useState({
     open: false,
@@ -64,7 +63,6 @@ export default function ScanScreen({ uid }: ScanScreenProps) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
-      setImagePreview(result);
       setImageBase64(result.split(",")[1]);
       analyzeImage(result.split(",")[1], file.type);
     };
@@ -174,7 +172,6 @@ Schätze die Portionsgrößen realistisch. Alle Werte in Gramm für Makros und k
 
   const handleReset = () => {
     setScanState("idle");
-    setImagePreview("");
     setImageBase64("");
     setResult(null);
   };
