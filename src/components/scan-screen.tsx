@@ -81,7 +81,7 @@ export default function ScanScreen({ uid }: ScanScreenProps) {
 
     setScanState("analyzing");
 
-    const apiKey = import.meta.env.VITE_GEMINI_KEY;
+    const apiKey = "AIzaSyA0laz32Fm5xaDvlv_bbfx8je63Z0TIBlM";
 
     const prompt = `Analysiere dieses Bild einer Mahlzeit. Gib mir eine JSON-Antwort mit folgender Struktur, OHNE Markdown-Backticks, NUR reines JSON:
 {
@@ -117,15 +117,10 @@ Schätze die Portionsgrößen realistisch. Alle Werte in Gramm für Makros und k
           }),
         },
       );
-      console.log("Response status:", response.status);
       const data = await response.json();
-      console.log("Response data:", JSON.stringify(data));
       if (!response.ok) {
         throw new Error(data?.error?.message ?? "Gemini API Fehler");
       }
-
-      console.log("Response status:", response.status);
-      console.log("Response body:", JSON.stringify(data));
 
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
       const parsed: AnalysisResult = JSON.parse(text.trim());
