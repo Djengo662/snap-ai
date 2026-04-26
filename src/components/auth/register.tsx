@@ -10,7 +10,12 @@ import {
   Typography,
 } from "@mui/material";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye, faEyeSlash, faLeaf } from "@fortawesome/free-solid-svg-icons";
+import {
+  faEye,
+  faEyeSlash,
+  faLeaf,
+  faEnvelope,
+} from "@fortawesome/free-solid-svg-icons";
 import {
   Card,
   GradientButton,
@@ -22,24 +27,26 @@ import {
 import { faGoogle } from "@fortawesome/free-brands-svg-icons/faGoogle";
 import { faApple } from "@fortawesome/free-brands-svg-icons/faApple";
 import {
-  loginWithEmail,
+  registerWithEmail,
   loginWithGoogle,
   createUserProfile,
-  logout,
 } from "../../firebase-config";
 import { sendEmailVerification } from "firebase/auth";
 
-interface LoginProps {
-  onLogin: (uid: string) => void;
+interface RegisterProps {
+  onRegister: (uid: string) => void;
   onSwitch: () => void;
 }
 
-export default function Login({ onLogin, onSwitch }: LoginProps) {
+export default function Register({ onRegister, onSwitch }: RegisterProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [showPwConfirm, setShowPwConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [toast, setToast] = useState({
     open: false,
     message: "",
@@ -53,79 +60,135 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
     setToast({ open: true, message, severity });
   };
 
-  const handleLogin = async () => {
-    if (!email || !password) {
+  const validate = (): boolean => {
+    if (!email || !password || !passwordConfirm) {
       showToast("Bitte alle Felder ausfüllen.", "error");
-      return;
+      return false;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToast("Ungültige E-Mail-Adresse.", "error");
+      return false;
+    }
+    if (password.length < 6) {
+      showToast("Passwort muss mindestens 6 Zeichen haben.", "error");
+      return false;
+    }
+    if (password !== passwordConfirm) {
+      showToast("Passwörter stimmen nicht überein.", "error");
+      return false;
+    }
+    return true;
+  };
 
+  const handleRegister = async () => {
+    if (!validate()) return;
     setLoading(true);
     try {
-      const result = await loginWithEmail(email, password);
-
-      if (!result.user.emailVerified) {
-        await logout();
-        showToast("Bitte bestätige zuerst deine E-Mail-Adresse.", "error");
-        return;
-      }
-
-      showToast("Willkommen zurück! 👋", "success");
-      setTimeout(() => onLogin(result.user.uid), 800);
+      const result = await registerWithEmail(email, password);
+      await createUserProfile(result.user.uid, result.user.email ?? email);
+      await sendEmailVerification(result.user);
+      setEmailSent(true);
     } catch (err: any) {
       const code = err?.code ?? "";
       const msg =
-        code === "auth/user-not-found" || code === "auth/wrong-password"
-          ? "E-Mail oder Passwort falsch."
-          : code === "auth/too-many-requests"
-            ? "Zu viele Versuche. Bitte warte kurz."
-            : code === "auth/invalid-email"
-              ? "Ungültige E-Mail-Adresse."
-              : "Anmeldung fehlgeschlagen. Bitte erneut versuchen.";
+        code === "auth/email-already-in-use"
+          ? "Diese E-Mail wird bereits verwendet."
+          : code === "auth/invalid-email"
+            ? "Ungültige E-Mail-Adresse."
+            : code === "auth/weak-password"
+              ? "Passwort ist zu schwach."
+              : "Registrierung fehlgeschlagen. Bitte erneut versuchen.";
       showToast(msg, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendVerification = async () => {
-    if (!email || !password) {
-      showToast("Bitte E-Mail und Passwort eingeben.", "error");
-      return;
-    }
-    try {
-      const result = await loginWithEmail(email, password);
-      if (!result.user.emailVerified) {
-        await sendEmailVerification(result.user);
-        await logout();
-        showToast("Bestätigungs-E-Mail erneut gesendet.", "success");
-      } else {
-        showToast("Deine E-Mail ist bereits bestätigt.", "success");
-      }
-    } catch {
-      showToast("Fehler beim Senden. Bitte prüfe deine Eingaben.", "error");
-    }
-  };
-
-  const handleGoogleLogin = async () => {
+  const handleGoogleRegister = async () => {
     setGoogleLoading(true);
     try {
       const result = await loginWithGoogle();
       await createUserProfile(result.user.uid, result.user.email ?? "");
-      onLogin(result.user.uid);
+      onRegister(result.user.uid);
     } catch (err: any) {
       if (err?.code !== "auth/popup-closed-by-user") {
-        showToast("Google-Login fehlgeschlagen.", "error");
+        showToast("Google-Registrierung fehlgeschlagen.", "error");
       }
     } finally {
       setGoogleLoading(false);
     }
   };
 
+  // ─── Bestätigungsscreen ───────────────────────────────────────────────────
+  if (emailSent) {
+    return (
+      <Wrap>
+        <Card>
+          <LogoCircle>
+            <FontAwesomeIcon icon={faEnvelope} color="white" size="2x" />
+          </LogoCircle>
+
+          <Typography
+            variant="h5"
+            sx={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 700,
+              color: "#EEEEF2",
+              letterSpacing: "-0.5px",
+              mb: 0.5,
+            }}
+          >
+            E-Mail bestätigen
+          </Typography>
+          <Typography
+            sx={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 13,
+              color: "#6B6E7F",
+              mb: 4,
+              textAlign: "center",
+            }}
+          >
+            Wir haben eine Bestätigungs-E-Mail an{" "}
+            <Typography
+              component="span"
+              sx={{ color: "#A29BFE", fontWeight: 600 }}
+            >
+              {email}
+            </Typography>{" "}
+            gesendet. Bitte bestätige deine E-Mail und melde dich dann an.
+          </Typography>
+
+          <GradientButton onClick={onSwitch}>Zur Anmeldung</GradientButton>
+
+          <Typography
+            sx={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 12,
+              color: "#6B6E7F",
+              mt: 2,
+              cursor: "pointer",
+              "&:hover": { color: "#A29BFE" },
+            }}
+            onClick={() =>
+              showToast(
+                "Bitte melde dich an um die E-Mail erneut zu senden.",
+                "info",
+              )
+            }
+          >
+            E-Mail nicht erhalten? Erneut senden
+          </Typography>
+        </Card>
+      </Wrap>
+    );
+  }
+
   return (
     <>
       <Snackbar
         open={toast.open}
-        autoHideDuration={3000}
+        autoHideDuration={2500}
         onClose={() => setToast((t) => ({ ...t, open: false }))}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
@@ -141,21 +204,6 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
           }}
         >
           {toast.message}
-          {toast.message.includes("bestätige") && (
-            <Typography
-              component="span"
-              onClick={handleResendVerification}
-              sx={{
-                display: "block",
-                fontSize: 11,
-                mt: 0.5,
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
-            >
-              Erneut senden
-            </Typography>
-          )}
         </Alert>
       </Snackbar>
 
@@ -175,7 +223,7 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
               mb: 0.5,
             }}
           >
-            SnapAi
+            Konto erstellen
           </Typography>
           <Typography
             sx={{
@@ -185,7 +233,7 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
               mb: 4,
             }}
           >
-            Dein KI-Ernährungscoach
+            Starte deine Ernährungsreise
           </Typography>
 
           <StyledTextField
@@ -195,7 +243,7 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
             placeholder="max@beispiel.de"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+            onKeyDown={(e) => e.key === "Enter" && handleRegister()}
             sx={{ mb: 1.5 }}
           />
 
@@ -203,10 +251,10 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
             fullWidth
             label="Passwort"
             type={showPw ? "text" : "password"}
-            placeholder="••••••••"
+            placeholder="Min. 6 Zeichen"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+            onKeyDown={(e) => e.key === "Enter" && handleRegister()}
             slotProps={{
               input: {
                 endAdornment: (
@@ -225,29 +273,43 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
                 ),
               },
             }}
-            sx={{ mb: 1 }}
+            sx={{ mb: 1.5 }}
           />
 
-          <Box sx={{ width: "100%", textAlign: "right", mb: 3 }}>
-            <Typography
-              component="span"
-              sx={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 12,
-                color: "#6C5CE7",
-                cursor: "pointer",
-                "&:hover": { textDecoration: "underline" },
-              }}
-            >
-              Passwort vergessen?
-            </Typography>
-          </Box>
+          <StyledTextField
+            fullWidth
+            label="Passwort bestätigen"
+            type={showPwConfirm ? "text" : "password"}
+            placeholder="••••••••"
+            value={passwordConfirm}
+            onChange={(e) => setPasswordConfirm(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleRegister()}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPwConfirm((v) => !v)}
+                      sx={{ color: "#6B6E7F" }}
+                      size="small"
+                    >
+                      <FontAwesomeIcon
+                        icon={showPwConfirm ? faEyeSlash : faEye}
+                        size="sm"
+                      />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ mb: 3 }}
+          />
 
-          <GradientButton onClick={handleLogin} disabled={loading}>
+          <GradientButton onClick={handleRegister} disabled={loading}>
             {loading && (
               <CircularProgress size={16} sx={{ color: "white", mr: 1 }} />
             )}
-            {loading ? "Anmelden..." : "Anmelden"}
+            {loading ? "Wird erstellt..." : "Konto erstellen"}
           </GradientButton>
 
           <Divider
@@ -265,7 +327,7 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
 
           <Box sx={{ display: "flex", gap: 1.5, width: "100%", mb: 3 }}>
             <SocialButton
-              onClick={handleGoogleLogin}
+              onClick={handleGoogleRegister}
               fullWidth
               disabled={googleLoading}
             >
@@ -290,7 +352,7 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
               color: "#6B6E7F",
             }}
           >
-            Noch kein Konto?{" "}
+            Bereits ein Konto?
             <Typography
               component="span"
               onClick={onSwitch}
@@ -301,7 +363,7 @@ export default function Login({ onLogin, onSwitch }: LoginProps) {
                 "&:hover": { textDecoration: "underline" },
               }}
             >
-              Registrieren
+              Anmelden
             </Typography>
           </Typography>
         </Card>
