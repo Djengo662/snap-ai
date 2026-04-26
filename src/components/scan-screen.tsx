@@ -160,7 +160,6 @@ Schätze die Portionsgrößen realistisch. Alle Werte in Gramm für Makros und k
       showToast("Mahlzeit gespeichert! 🎉", "success");
       setTimeout(() => {
         setScanState("idle");
-        setImagePreview("");
         setImageBase64("");
         setResult(null);
       }, 1000);
