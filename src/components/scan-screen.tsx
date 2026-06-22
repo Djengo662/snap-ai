@@ -70,69 +70,23 @@ export default function ScanScreen({ uid }: ScanScreenProps) {
   };
 
   const analyzeImage = async (base64: string, mimeType: string) => {
-    // const apiKey = loadApyKey("gemini");
-
-    // if (!apiKey) {
-    //   showToast(
-    //     "Bitte zuerst einen Gemini API-Key in den Einstellungen eingeben.",
-    //   );
-    //   return;
-    // }
-
     setScanState("analyzing");
 
-    const apiKey = "AIzaSyA0laz32Fm5xaDvlv_bbfx8je63Z0TIBlM";
-
-    const prompt = `Analysiere dieses Bild einer Mahlzeit. Gib mir eine JSON-Antwort mit folgender Struktur, OHNE Markdown-Backticks, NUR reines JSON:
-{
-  "foods": [
-    { "name": "Lebensmittelname", "calories": 123, "amount": "100g" }
-  ],
-  "totalCalories": 456,
-  "macros": {
-    "protein": 20,
-    "carbs": 50,
-    "fat": 15
-  }
-}
-Schätze die Portionsgrößen realistisch. Alle Werte in Gramm für Makros und kcal für Kalorien.`;
-
     try {
-      console.log("Sending fetch...");
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: prompt },
-                  { inline_data: { mime_type: mimeType, data: base64 } },
-                ],
-              },
-            ],
-          }),
-        },
-      );
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64, mimeType }),
+      });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error?.message ?? "Gemini API Fehler");
+        throw new Error(data?.error ?? "Analyse fehlgeschlagen.");
       }
 
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      const parsed: AnalysisResult = JSON.parse(text.trim());
-      setResult(parsed);
+      setResult(data as AnalysisResult);
       setScanState("result");
     } catch (err: any) {
-      console.log("Fetch error:", err);
-      showToast(
-        err.message?.includes("API")
-          ? "API-Key ungültig oder Limit erreicht."
-          : "Analyse fehlgeschlagen. Bitte erneut versuchen.",
-      );
+      showToast(err.message ?? "Analyse fehlgeschlagen. Bitte erneut versuchen.");
       setScanState("idle");
     }
   };
