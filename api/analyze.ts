@@ -2,7 +2,7 @@
 // Erreichbar unter /api/analyze
 
 export const config = {
-  runtime: "nodejs",
+  runtime: "edge",
 };
 
 const PROMPT = `Analysiere dieses Bild einer Mahlzeit. Gib mir eine JSON-Antwort mit folgender Struktur, OHNE Markdown-Backticks, NUR reines JSON:
